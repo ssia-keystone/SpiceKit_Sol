@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+
+    <link rel="stylesheet" type="text/css" href="main.css">
+
+    <script src="./node_modules/web3/dist/web3.min.js"></script>
+
+</head>
+<body>
+    <div class="container">
+
+        <h1>Class Action Mockup</h1>
+
+        <label for="name" class="col-lg-2 control-label">Lawyer's Ethereum Account</label>
+        <input id="lawyerAccount" type="text", value='0xa0a456298ae3d6a8bfd4554ea2edbbc2dff748a0'>
+
+        <label for="name" class="col-lg-2 control-label">Evidence Hash</label>
+        <input id="eHash" type="text", value='0x759f90cbd2c3150530db116331dd04e0eeff79d8'>
+
+        <label for="name" class="col-lg-2 control-label">Amount Of Ether To Donate</label>
+        <input id="amount" type="text" value="1">
+
+        <button id="contribute">Contribute</button>
+
+        <button id="checkAmountRaised">amount Raised In Ether</button>
+        <button id="fundsCurrentlyInContract">fundsInContract</button>
+
+        <button id="confirmDismiss">confirmDismiss</button>
+        <button id="confirmCertification">confirmCertification</button>
+
+        <button id="kill">kill</button>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+    <script src="params.js"></script>
+
+    <script>
+        web3.eth.defaultAccount = userAccount;
+
+        var ClassActionContract = web3.eth.contract(classActionAbi);
+        var CA = ClassActionContract.at(classActionAdd);
+        var events = CA.allEvents();
+        // watch for changes
+        events.watch(function(error, event){
+          if (!error)
+            console.log(event);
+        });
+
+        console.log(CA);
+
+        $("#contribute").click(function() {
+            var ended = CA.fundingClosed()
+            if (CA.dismissDenied()) {
+                console.log("Note: Dismiss already successful.")
+            }
+            if (ended) {
+                console.log("Funding ended, unable to contribute.")
+                if (CA.certificationSuccessful()) {
+                    console.log("Certification already successful.")
+                }
+            }
+            else {
+                console.log("Contributing Ethereum:", $("#amount").val())
+                var tx = CA.contribute($("#eHash").val(), {from: userAccount, value: $("#amount").val()*(10**18)}, function(err, res){
+                    console.log("ContribResult", res);
+                });
+            }
+        });
+
+        $("#checkAmountRaised").click(function() {
+            var amountRaised = CA.amountRaised();
+            console.log("AmountRaised in Ether:", (amountRaised/10**18).toString());
+        });
+
+        $("#confirmDismiss").click(function() {
+            if (CA.certificationSuccessful()) {
+                console.log("Certification already successful.")
+            }
+            else if (CA.dismissDenied()) {
+                console.log("Dismiss already successful.")
+            }
+            else {
+                var tx = CA.confirmMotionToDismissDenied(lawyerAddress, {from: oracle, gas: 6721000});
+                console.log("confirmDismiss", tx);
+            }
+        });
+
+        $("#confirmCertification").click(function() {
+            if (CA.certificationSuccessful()) {
+                console.log("Certification already successful.")
+            }
+            else {
+                var tx = CA.confirmCertification(lawyerAddress, {from: oracle, gas: 6721000});
+                console.log("confirmCertification", tx);
+            }
+        });
+
+        $("#fundsCurrentlyInContract").click(function() {
+            var tx = web3.eth.getBalance(classActionAdd)
+            console.log("Ethereum in contract:", (tx/10**18).toString())
+        });
+
+        $("#kill").click(function() {
+            var tx = CA.kill({from: creator, gas: 6721000});
+            console.log("Killed.")
+        });
+
+    </script>
+
+</body>
+</html>
